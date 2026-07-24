@@ -22,12 +22,12 @@ public class Admin extends User {
     @Override
     public String getRole() { return "ADMIN"; }
 
-    /** Authenticates against the given credentials, but only succeeds if the account is actually an Admin. */
+    // Authenticates against the given credentials, but only succeeds if the account is actually an Admin. 
     public static Admin authenticateAdmin(String email, String password) {
         User user = User.authenticate(email, password);
         return (user instanceof Admin) ? (Admin) user : null;
     }
-/
+
     // Reviews one of a tutor's uploaded qualifications. A tutor's overall verified status is derived from this: as soon as any qualification is VERIFIED, the tutor becomes verifed and stays that way even if that qualification is later re-reviewed, as long as atleast one other VERIFIED one remains
     public void reviewQualification(Tutor tutor, Qualification qualification, QualificationStatus status) {
         qualification.setStatus(status);
