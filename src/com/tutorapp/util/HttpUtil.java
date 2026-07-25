@@ -32,6 +32,24 @@ public class HttpUtil {
         return parseQuery(body);
     }
 
+    // Like parseForm, but keeps every value for a repeated field name instead of overwriting -
+    // needed for checkbox groups (e.g. selecting several subjects on the register page).
+    public static Map<String, java.util.List<String>> parseFormMulti(HttpExchange exchange) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        exchange.getRequestBody().transferTo(baos);
+        String body = baos.toString(StandardCharsets.UTF_8);
+        Map<String, java.util.List<String>> map = new HashMap<>();
+        if (body == null || body.isEmpty()) return map;
+        for (String pair : body.split("&")) {
+            int idx = pair.indexOf('=');
+            if (idx == -1) continue;
+            String key = decode(pair.substring(0, idx));
+            String value = decode(pair.substring(idx + 1));
+            map.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(value);
+        }
+        return map;
+    }
+
     private static String decode(String s) {
         try {
             return URLDecoder.decode(s.replace("+", "%20"), StandardCharsets.UTF_8);

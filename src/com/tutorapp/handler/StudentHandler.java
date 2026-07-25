@@ -56,10 +56,14 @@ public class StudentHandler implements HttpHandler {
     private void tutorList(HttpExchange exchange, Student student) throws IOException {
         Map<String, String> q = HttpUtil.queryParams(exchange);
         String subjectFilter = q.get("subject");
+        String nameFilter = q.get("name");
 
         StringBuilder body = new StringBuilder("<h1>Find a Tutor</h1>");
         body.append("<form method='GET' action='/student/tutors' style='flex-direction:row;max-width:none;margin-bottom:20px'>")
-            .append("<select name='subject' class='auto-submit'><option value=''>All subjects</option>");
+            .append("<input type='text' name='name' placeholder='Search tutors by name' value='")
+            .append(nameFilter == null ? "" : Layout.escape(nameFilter)).append("'>")
+            .append("<button type='submit'>Search</button>")
+            .append("<select name='subject' class='auto-submit' style='margin-left:auto'><option value=''>All subjects</option>");
         for (Subject s : DataStore.get().allSubjects()) {
             boolean selected = String.valueOf(s.getSubjectId()).equals(subjectFilter);
             body.append("<option value='").append(s.getSubjectId()).append("'")
@@ -69,7 +73,7 @@ public class StudentHandler implements HttpHandler {
 
         Subject filterSubject = (subjectFilter != null && !subjectFilter.isEmpty())
                 ? DataStore.get().findSubject(Integer.parseInt(subjectFilter)) : null;
-        List<Tutor> tutors = student.searchTutor(filterSubject);
+        List<Tutor> tutors = student.searchTutor(filterSubject, nameFilter);
         for (Tutor t : tutors) {
             List<SessionOption> options = t.getSessionOptions();
             if (filterSubject != null) {

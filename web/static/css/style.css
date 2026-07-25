@@ -116,7 +116,7 @@ label {
     font-weight: 600;
 }
 
-input,
+input:not([type=checkbox]):not([type=radio]),
 select,
 
     /* Enhanced Dropdown & Option Styling */
@@ -130,6 +130,14 @@ select {
     padding: 10px 12px;
     border-radius: 6px;
     outline: none;
+}
+
+input[type=checkbox],
+input[type=radio] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-secondary);
+    cursor: pointer;
 }
 
 select option {
@@ -217,11 +225,14 @@ th { color: var(--color-muted); font-size: 12px; text-transform: uppercase; }
     margin-bottom: 30px;
 }
 .hero h1 { color: #fff; font-size: 34px; margin-bottom: 10px; }
+.hero h2 { color: #fff; font-size: 28px; margin-bottom: 10px; }
 .hero p { color: var(--color-muted); font-size: 16px; max-width: 560px; }
 .hero .btn-nav { margin-top: 16px; display: inline-block; }
+.hero .hero-stat { color: #fff; font-size: 14px; font-weight: 600; margin-top: 10px; opacity: .9; }
 
 .subject-tag { background: var(--color-light-bg); color: var(--color-secondary); padding: 3px 10px; border-radius: 20px; font-size: 12px; margin-right: 4px; }
 .muted { color: var(--color-muted); font-size: 13px; }
+.subject-stats { font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: .3px; color: var(--color-heading); margin-top: 4px; }
 
 /* Profile pictures */
 .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; vertical-align: middle; }

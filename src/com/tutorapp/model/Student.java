@@ -38,16 +38,17 @@ public class Student extends User {
         return student;
     }
 
-    // All tutors, optionally filtered to ones offering the given subject. Verification is shown as a trust badge, not a listing filter.
+    // All tutors, optionally filtered to ones offering the given subject and/or matching the given name (case-insensitive substring match). Verification is shown as a trust badge, not a listing filter.
 
-    public List<Tutor> searchTutor(Subject subjectFilter) {
+    public List<Tutor> searchTutor(Subject subjectFilter, String nameFilter) {
         List<Tutor> tutors = DataStore.get().allTutors();
-        if (subjectFilter == null) return tutors;
         List<Tutor> matching = new ArrayList<>();
+        String needle = (nameFilter == null) ? "" : nameFilter.trim().toLowerCase();
         for (Tutor t : tutors) {
-            boolean offersSubject = t.getSessionOptions().stream()
+            boolean offersSubject = subjectFilter == null || t.getSessionOptions().stream()
                     .anyMatch(o -> o.getSubject().getSubjectId() == subjectFilter.getSubjectId());
-            if (offersSubject) matching.add(t);
+            boolean matchesName = needle.isEmpty() || t.getName().toLowerCase().contains(needle);
+            if (offersSubject && matchesName) matching.add(t);
         }
         return matching;
     }
