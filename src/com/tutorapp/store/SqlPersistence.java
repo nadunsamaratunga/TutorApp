@@ -126,13 +126,15 @@ public final class SqlPersistence {
 
     public static void saveStudyMaterial(String tutorId, StudyMaterial m) {
         if (!Database.isAvailable()) return;
-        String sql = "INSERT INTO study_materials (material_id, tutor_id, title, file_url, upload_date) VALUES (?,?,?,?,?)";
+        String sql = "INSERT INTO study_materials (material_id, tutor_id, option_id, title, file_url, upload_date) VALUES (?,?,?,?,?,?)";
         try (Connection conn = Database.connect(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, m.getMaterialId());
             ps.setString(2, tutorId);
-            ps.setString(3, m.getTitle());
-            ps.setString(4, m.getFileURL());
-            ps.setObject(5, m.getUploadDate());
+            if (m.getOption() != null) ps.setInt(3, m.getOption().getOptionId());
+            else ps.setNull(3, java.sql.Types.INTEGER);
+            ps.setString(4, m.getTitle());
+            ps.setString(5, m.getFileURL());
+            ps.setObject(6, m.getUploadDate());
             ps.executeUpdate();
         } catch (SQLException e) {
             logFailure("saveStudyMaterial", e);

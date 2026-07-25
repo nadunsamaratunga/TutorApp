@@ -48,25 +48,25 @@ public class AdminHandler implements HttpHandler {
             + "<div class='card'><h3>" + admin.allSessions().size() + "</h3><p class='muted'>Total sessions</p></div>"
             + "<div class='card'><h3>" + admin.pendingBankPayments().size() + "</h3><p class='muted'>Bank payments awaiting review</p></div>"
             + "<div class='card'><h3>Rs. " + String.format("%.2f", admin.totalRevenue()) + "</h3><p class='muted'>Revenue collected</p></div>"
-            + "</div><div class='card'>"
-            + "<a class='btn-link' href='/admin/tutors'>Manage &amp; verify tutors &rarr;</a><br>"
-            + "<a class='btn-link' href='/admin/payments'>Review bank payment proofs &rarr;</a><br>"
-            + "<a class='btn-link' href='/admin/subjects'>Manage subjects &rarr;</a><br>"
-            + "<a class='btn-link' href='/admin/reports'>View full report &rarr;</a></div>";
+            + "</div><div class='card'><div class='quick-links'>"
+            + "<a href='/admin/tutors'>Manage &amp; verify tutors &rarr;</a>"
+            + "<a href='/admin/payments'>Review bank payment proofs &rarr;</a>"
+            + "<a href='/admin/subjects'>Manage subjects &rarr;</a>"
+            + "<a href='/admin/reports'>View full report &rarr;</a></div></div>";
         HttpUtil.sendHtml(exchange, 200, Layout.page("Admin Dashboard", body, admin, null));
     }
 
     private void tutorsPage(HttpExchange exchange, Admin admin) throws IOException {
         StringBuilder body = new StringBuilder("<h1>Tutors</h1><p class='muted'>A tutor becomes verified automatically once you approve at least one of their uploaded qualifications.</p>")
-            .append("<table><tr><th>Name</th><th>Email</th><th>Qualifications</th><th>Status</th></tr>");
+            .append("<div class='card'><table><tr><th>Name</th><th>Email</th><th>Qualifications</th><th>Status</th></tr>");
         for (Tutor t : admin.allTutors()) {
             body.append("<tr><td>").append(Layout.escape(t.getName())).append(t.isVerified() ? " &#9989;" : "").append("</td><td>")
                 .append(Layout.escape(t.getEmail())).append("</td><td>")
-                .append("<a href='/admin/tutors/qualifications?tutorId=").append(t.getUserId()).append("'>")
+                .append("<a class='btn-proof' href='/admin/tutors/qualifications?tutorId=").append(t.getUserId()).append("'>")
                 .append(t.getQualifications().size()).append(" &rarr;</a>")
                 .append("</td><td>").append(t.isVerified() ? badge("VERIFIED") : badge("PENDING")).append("</td></tr>");
         }
-        body.append("</table>");
+        body.append("</table></div>");
         HttpUtil.sendHtml(exchange, 200, Layout.page("Tutors", body.toString(), admin, null));
     }
 
@@ -89,7 +89,7 @@ public class AdminHandler implements HttpHandler {
             body.append("<table><tr><th>Title</th><th>Document</th><th>Status</th><th></th></tr>");
             for (Qualification qual : t.getQualifications()) {
                 body.append("<tr><td>").append(Layout.escape(qual.getTitle())).append("</td><td>")
-                    .append("<a href='").append(Layout.escape(qual.getDocumentURL())).append("' target='_blank'>view document</a></td><td>")
+                    .append("<a class='btn-proof' href='").append(Layout.escape(qual.getDocumentURL())).append("' target='_blank'>View document</a></td><td>")
                     .append(badge(qual.getStatus().name())).append("</td><td>");
                 if (qual.getStatus() != QualificationStatus.VERIFIED) {
                     body.append("<form style='display:inline' method='POST' action='/admin/tutors/qualifications/verify'>")
@@ -145,7 +145,7 @@ public class AdminHandler implements HttpHandler {
                     .append(s.getScheduledDate()).append(" ").append(s.getStartTime()).append("</td><td>Rs. ")
                     .append(String.format("%.2f", s.getPrice())).append("</td><td>")
                     .append(Layout.escape(payment.getAccountNumber())).append("</td><td>")
-                    .append("<a href='").append(Layout.escape(payment.getReceiptImage())).append("' target='_blank'>View proof</a></td><td>")
+                    .append("<a class='btn-proof' href='").append(Layout.escape(payment.getReceiptImage())).append("' target='_blank'>View proof</a></td><td>")
                     .append("<form style='display:inline' method='POST' action='/admin/payments/verify'>")
                     .append("<input type='hidden' name='sessionId' value='").append(s.getSessionId()).append("'>")
                     .append("<button type='submit'>Verify</button></form> ")

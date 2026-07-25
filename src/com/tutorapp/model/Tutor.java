@@ -46,10 +46,15 @@ public class Tutor extends User {
         return q;
     }
 
-    public StudyMaterial uploadMaterial(String title, String fileURL) {
-        StudyMaterial m = new StudyMaterial(title, fileURL);
+    public StudyMaterial uploadMaterial(String title, String fileURL, SessionOption option) {
+        StudyMaterial m = new StudyMaterial(title, fileURL, option);
         studyMaterials.add(m);
         return m;
+    }
+
+    // All study materials this tutor has shared for one particular session option.
+    public List<StudyMaterial> materialsFor(SessionOption option) {
+        return studyMaterials.stream().filter(m -> m.getOption() == option).toList();
     }
 
     // Adds a subject to teach, ignoring duplicates. 

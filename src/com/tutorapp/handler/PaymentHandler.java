@@ -121,7 +121,7 @@ public class PaymentHandler implements HttpHandler {
 
         String body = "<h1>Bank Transfer</h1><div class='card'>"
             + (error != null ? "<p style='color:#c62828'>" + Layout.escape(error) + "</p>" : "")
-            + "<div class='card' style='background:#f4f7fb;box-shadow:none'>"
+            + "<div class='card card-light'>"
             + "<p class='muted' style='margin-bottom:6px'>Transfer Rs. " + String.format("%.2f", session.getPrice()) + " to:</p>"
             + "<p style='margin:2px 0'><b>Bank:</b> " + Layout.escape(BANK_NAME) + "</p>"
             + "<p style='margin:2px 0'><b>Account Name:</b> " + Layout.escape(BANK_ACCOUNT_NAME) + "</p>"

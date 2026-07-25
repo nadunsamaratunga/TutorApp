@@ -75,9 +75,12 @@ CREATE TABLE qualifications (
 -- ---------------------------------------------------------------------
 -- STUDY MATERIAL  (one tutor -> many materials)
 -- ---------------------------------------------------------------------
+-- NOTE: option_id references session_options, which is defined further down this file,
+-- so that foreign key is added afterwards via ALTER TABLE (see below session_options).
 CREATE TABLE study_materials (
     material_id  INT AUTO_INCREMENT PRIMARY KEY,
     tutor_id     CHAR(36) NOT NULL,
+    option_id    INT NULL,                                        -- which of the tutor's session offerings this material belongs to
     title        VARCHAR(150) NOT NULL,
     file_url     VARCHAR(300) NOT NULL,
     upload_date  DATE NOT NULL,
@@ -103,6 +106,12 @@ CREATE TABLE session_options (
     CONSTRAINT fk_session_options_subject
         FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );
+
+-- Deferred FK: study_materials.option_id -> session_options.option_id
+-- (added here since session_options is defined after study_materials above)
+ALTER TABLE study_materials
+    ADD CONSTRAINT fk_study_materials_option
+        FOREIGN KEY (option_id) REFERENCES session_options(option_id) ON DELETE SET NULL;
 
 -- ---------------------------------------------------------------------
 -- SESSION REQUEST  (student asks to hire a tutor for a subject/time slot)
@@ -219,6 +228,7 @@ CREATE INDEX idx_session_options_tutor     ON session_options(tutor_id);
 -- tutor_profiles (M) --- (M) subjects            via tutor_subjects
 -- tutor_profiles (1) --- (M) qualifications
 -- tutor_profiles (1) --- (M) study_materials
+-- session_options (1) -- (M) study_materials     (which session offering a material belongs to)
 -- tutor_profiles (1) --- (M) session_options      (tutor's own priced offerings)
 -- users[student] (1) --- (M) session_requests --- (M..1) tutor_profiles
 -- session_requests (M) - (1) session_options       (price snapshotted at request time)

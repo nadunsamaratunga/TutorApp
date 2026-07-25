@@ -10,25 +10,28 @@ public class StudyMaterial {
     private String title;
     private String fileURL;
     private final LocalDate uploadDate;
+    private SessionOption option; // which of the tutor's session offerings this material belongs to
 
-    public StudyMaterial(String title, String fileURL) {
+    public StudyMaterial(String title, String fileURL, SessionOption option) {
         this.materialId = COUNTER.getAndIncrement();
         this.title = title;
         this.fileURL = fileURL;
         this.uploadDate = LocalDate.now();
+        this.option = option;
     }
 
-    private StudyMaterial(int materialId, String title, String fileURL, LocalDate uploadDate) {
+    private StudyMaterial(int materialId, String title, String fileURL, LocalDate uploadDate, SessionOption option) {
         this.materialId = materialId;
         this.title = title;
         this.fileURL = fileURL;
         this.uploadDate = uploadDate;
+        this.option = option;
     }
 
     // Rebuilds a StudyMaterial that already exists in the database, preserving its original id and upload date. 
 
-    public static StudyMaterial restore(int materialId, String title, String fileURL, LocalDate uploadDate) {
-        return new StudyMaterial(materialId, title, fileURL, uploadDate);
+    public static StudyMaterial restore(int materialId, String title, String fileURL, LocalDate uploadDate, SessionOption option) {
+        return new StudyMaterial(materialId, title, fileURL, uploadDate, option);
     }
 
     //Ensures the next auto-assigned id won't collide with one already loaded from the database. 
@@ -52,4 +55,6 @@ public class StudyMaterial {
     public String getTitle() { return title; }
     public String getFileURL() { return fileURL; }
     public LocalDate getUploadDate() { return uploadDate; }
+    public SessionOption getOption() { return option; }
+    public void setOption(SessionOption option) { this.option = option; }
 }

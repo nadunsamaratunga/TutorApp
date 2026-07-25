@@ -67,15 +67,25 @@ public class SessionOption {
         return getBookedCount(date, startTime) >= maxStudents;
     }
 
-    // One representative (non-rejected) request per distinct date+time slot that has already been requested for this option, in the order each slot was first requested. Lets students see and join sessions other students already booked, instead of always having to propose a brand new time.
+    // One representative (non-rejected) request per distinct date+time slot that has already been requested for this option, in the order each slot was first requested. Lets students see and join sessions other students already booked, instead of always having to propose a brand new time. Slots the tutor has already marked complete are excluded, since that class has already taken place.
     public List<SessionRequest> existingSlots() {
         Map<String, SessionRequest> distinctSlots = new LinkedHashMap<>();
         for (SessionRequest r : DataStore.get().allSessionRequests()) {
             if (r.getOption() != this || r.getStatus() == RequestStatus.REJECTED) continue;
+            if (isSlotCompleted(r.getRequestDate(), r.getStartTime())) continue;
             String slotKey = r.getRequestDate() + "@" + r.getStartTime();
             distinctSlots.putIfAbsent(slotKey, r);
         }
         return new ArrayList<>(distinctSlots.values());
+    }
+
+    // True once the tutor has marked any session for this option at this exact date+time as complete.
+    private boolean isSlotCompleted(LocalDate date, LocalTime startTime) {
+        return DataStore.get().allSessions().stream()
+                .anyMatch(s -> s.getOption() == this
+                        && s.getScheduledDate().equals(date)
+                        && s.getStartTime().equals(startTime)
+                        && s.getStatus() == SessionStatus.COMPLETED);
     }
 
     public int getOptionId() { return optionId; }

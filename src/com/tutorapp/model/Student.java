@@ -45,6 +45,7 @@ public class Student extends User {
         List<Tutor> matching = new ArrayList<>();
         String needle = (nameFilter == null) ? "" : nameFilter.trim().toLowerCase();
         for (Tutor t : tutors) {
+            if (t.getSessionOptions().isEmpty()) continue; // hide tutors with no bookable sessions
             boolean offersSubject = subjectFilter == null || t.getSessionOptions().stream()
                     .anyMatch(o -> o.getSubject().getSubjectId() == subjectFilter.getSubjectId());
             boolean matchesName = needle.isEmpty() || t.getName().toLowerCase().contains(needle);
@@ -100,15 +101,10 @@ public class Student extends User {
         }
     }
 
-    //All study materials shared by tutors this student has booked a session with. 
-
-    public List<StudyMaterial> viewMaterials() {
-        Set<Tutor> myTutors = new LinkedHashSet<>();
-        for (Session s : sessions) myTutors.add(s.getTutor());
-
-        List<StudyMaterial> materials = new ArrayList<>();
-        for (Tutor t : myTutors) materials.addAll(t.getStudyMaterials());
-        return materials;
+    // Sessions the student has paid for and that the tutor has activated - study materials for a
+    // session only become visible once it reaches this state.
+    public List<Session> sessionsWithAccessibleMaterials() {
+        return sessions.stream().filter(s -> s.getStatus() == SessionStatus.ACTIVE).toList();
     }
 
     // Distinct tutors this student has booked at least one session with (used to group materials in the UI). 

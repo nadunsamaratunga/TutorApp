@@ -47,9 +47,10 @@ public class StudentHandler implements HttpHandler {
             + "<div class='card'><h3>" + completed + "</h3><p class='muted'>Completed sessions</p></div>"
             + "<div class='card'><h3>" + DataStore.get().verifiedTutors().size() + "</h3><p class='muted'>Verified tutors available</p></div>"
             + "</div>"
-            + "<div class='card'><a class='btn-link' href='/student/tutors'>Find a tutor &rarr;</a><br>"
-            + "<a class='btn-link' href='/student/sessions'>View my sessions &rarr;</a><br>"
-            + "<a class='btn-link' href='/student/materials'>View study materials &rarr;</a></div>";
+            + "<div class='card'><div class='quick-links'>"
+            + "<a href='/student/tutors'>Find a tutor &rarr;</a>"
+            + "<a href='/student/sessions'>View my sessions &rarr;</a>"
+            + "<a href='/student/materials'>View study materials &rarr;</a></div></div>";
         HttpUtil.sendHtml(exchange, 200, Layout.page("Dashboard", body, student, null));
     }
 
@@ -62,14 +63,16 @@ public class StudentHandler implements HttpHandler {
         body.append("<form method='GET' action='/student/tutors' style='flex-direction:row;max-width:none;margin-bottom:20px'>")
             .append("<input type='text' name='name' placeholder='Search tutors by name' value='")
             .append(nameFilter == null ? "" : Layout.escape(nameFilter)).append("'>")
-            .append("<button type='submit'>Search</button>")
-            .append("<select name='subject' class='auto-submit' style='margin-left:auto'><option value=''>All subjects</option>");
+            .append("<button type='submit' class='btn-search'>Search</button>")
+            .append("<span style='display:flex;align-items:center;gap:8px;margin-left:auto'>")
+            .append("<label style='margin:0'>Filter by:</label>")
+            .append("<select name='subject' class='auto-submit'><option value=''>All subjects</option>");
         for (Subject s : DataStore.get().allSubjects()) {
             boolean selected = String.valueOf(s.getSubjectId()).equals(subjectFilter);
             body.append("<option value='").append(s.getSubjectId()).append("'")
                 .append(selected ? " selected" : "").append(">").append(Layout.escape(s.getSubjectName())).append("</option>");
         }
-        body.append("</select></form><div class='grid'>");
+        body.append("</select></span></form><div class='grid'>");
 
         Subject filterSubject = (subjectFilter != null && !subjectFilter.isEmpty())
                 ? DataStore.get().findSubject(Integer.parseInt(subjectFilter)) : null;
@@ -82,79 +85,97 @@ public class StudentHandler implements HttpHandler {
                         .toList();
             }
 
-            body.append("<div class='card'><h3>").append(Layout.avatarHtml(t, "avatar")).append(" ").append(Layout.escape(t.getName()))
-                .append(t.isVerified() ? " &#9989;" : "").append("</h3>");
-            for (Subject s : t.getSubjects()) {
-                body.append("<span class='subject-tag'>").append(Layout.escape(s.getSubjectName())).append("</span>");
-            }
-            body.append("<p class='muted'>").append(t.getStudyMaterials().size()).append(" material(s) shared</p>");
-
-            if (!t.getQualifications().isEmpty()) {
-                body.append("<div style='margin:8px 0'>");
-                for (Qualification qual : t.getQualifications()) {
-                    if (qual.getStatus() != QualificationStatus.VERIFIED) continue;
-                    body.append("<p class='muted'>&#9989; ").append(Layout.escape(qual.getTitle())).append("</p>");
-                }
-                body.append("</div>");
-            }
-
             if (options.isEmpty()) {
+                body.append("<div class='card tutor-card'>");
+                appendTutorHeader(body, t);
                 body.append("<p class='muted'>This tutor hasn't listed any bookable sessions yet.</p>");
-            } else {
-                for (SessionOption o : options) {
-                    body.append("<div style='border-top:1px solid #e5ebf3;padding-top:12px;margin-top:12px'>")
-                        .append("<p><b>").append(Layout.escape(o.getTitle())).append("</b> &middot; ")
-                        .append(Layout.escape(o.getSubject().getSubjectName())).append(" &middot; ")
-                        .append(o.getDurationMinutes()).append(" min &middot; <b>Rs. ")
-                        .append(String.format("%.2f", o.getPrice())).append("</b> &middot; ")
-                        .append("<span class='muted'>up to ").append(o.getMaxStudents()).append(" student(s) per session</span></p>");
-
-                    if (student.hasRequested(o)) {
-                        body.append("<p class='muted'>You've already booked this session.</p></div>");
-                        continue;
-                    }
-
-                    List<SessionRequest> slots = o.existingSlots();
-                    if (!slots.isEmpty()) {
-                        body.append("<p class='muted' style='margin-bottom:4px'>Upcoming sessions - join one below, or propose a new time:</p>");
-                        for (SessionRequest slot : slots) {
-                            int booked = o.getBookedCount(slot.getRequestDate(), slot.getStartTime());
-                            boolean full = o.isFull(slot.getRequestDate(), slot.getStartTime());
-                            body.append("<div style='display:flex;align-items:center;gap:10px;margin:6px 0'>")
-                                .append("<span>").append(slot.getRequestDate()).append(" &middot; ")
-                                .append(slot.getStartTime()).append("-").append(slot.getEndTime()).append("</span>")
-                                .append("<span class='muted'>").append(booked).append(" / ").append(o.getMaxStudents()).append(" joined</span>");
-                            if (full) {
-                                body.append("<span class='badge badge-cancelled'>Session is full</span>");
-                            } else {
-                                body.append("<form method='POST' action='/student/hire' style='display:inline;max-width:none'>")
-                                    .append("<input type='hidden' name='tutorId' value='").append(t.getUserId()).append("'>")
-                                    .append("<input type='hidden' name='optionId' value='").append(o.getOptionId()).append("'>")
-                                    .append("<input type='hidden' name='date' value='").append(slot.getRequestDate()).append("'>")
-                                    .append("<input type='hidden' name='startTime' value='").append(slot.getStartTime()).append("'>")
-                                    .append("<button type='submit'>Join this session</button></form>");
-                            }
-                            body.append("</div>");
-                        }
-                    }
-
-                    body.append("<details style='margin-top:8px'><summary class='muted' style='cursor:pointer'>Propose a new time</summary>")
-                        .append("<form method='POST' action='/student/hire' style='margin-top:8px'>")
-                        .append("<input type='hidden' name='tutorId' value='").append(t.getUserId()).append("'>")
-                        .append("<input type='hidden' name='optionId' value='").append(o.getOptionId()).append("'>")
-                        .append("<label>Date</label><input type='date' name='date' required>")
-                        .append("<label>Start time</label><input type='time' name='startTime' required>")
-                        .append("<button type='submit'>Request This Session</button></form></details>");
-                    body.append("</div>");
-                }
+                body.append("</div>");
+                continue;
             }
-            body.append("</div>");
+
+            // Each session option gets its own box so tutors with several offerings don't get
+            // squeezed into one long card.
+            for (SessionOption o : options) {
+                body.append("<div class='card tutor-card'>");
+                appendTutorHeader(body, t);
+
+                body.append("<div style='border-top:1px solid #e5ebf3;padding-top:12px;margin-top:12px'>")
+                    .append("<p style='font-weight:700;font-size:15px;text-align:center'>").append(Layout.escape(o.getTitle()))
+                    .append(" &middot; ").append(Layout.escape(o.getSubject().getSubjectName())).append("</p>")
+                    .append("<ul class='option-details'>")
+                    .append("<li>Time: ").append(o.getDurationMinutes()).append(" min</li>")
+                    .append("<li>Price: Rs. ").append(String.format("%.2f", o.getPrice())).append("</li>")
+                    .append("<li>Up to ").append(o.getMaxStudents()).append(" student(s) per session</li>")
+                    .append("<li>").append(t.materialsFor(o).size()).append(" study material(s) for this session</li>")
+                    .append("</ul>");
+
+                if (student.hasRequested(o)) {
+                    body.append("<p class='muted'>You've already booked this session.</p></div>");
+                    body.append("</div>");
+                    continue;
+                }
+
+                List<SessionRequest> slots = o.existingSlots();
+                if (!slots.isEmpty()) {
+                    body.append("<p class='muted' style='margin-bottom:4px'>Upcoming sessions - join one below, or propose a new time:</p>");
+                    for (SessionRequest slot : slots) {
+                        int booked = o.getBookedCount(slot.getRequestDate(), slot.getStartTime());
+                        boolean full = o.isFull(slot.getRequestDate(), slot.getStartTime());
+                        body.append("<div style='display:flex;align-items:center;gap:10px;margin:6px 0'>")
+                            .append("<span>").append(slot.getRequestDate()).append(" &middot; ")
+                            .append(slot.getStartTime()).append("-").append(slot.getEndTime()).append("</span>")
+                            .append("<span class='muted'>").append(booked).append(" / ").append(o.getMaxStudents()).append(" joined</span>");
+                        if (full) {
+                            body.append("<span class='badge badge-cancelled'>Session is full</span>");
+                        } else {
+                            body.append("<form method='POST' action='/student/hire' style='display:inline;max-width:none'>")
+                                .append("<input type='hidden' name='tutorId' value='").append(t.getUserId()).append("'>")
+                                .append("<input type='hidden' name='optionId' value='").append(o.getOptionId()).append("'>")
+                                .append("<input type='hidden' name='date' value='").append(slot.getRequestDate()).append("'>")
+                                .append("<input type='hidden' name='startTime' value='").append(slot.getStartTime()).append("'>")
+                                .append("<button type='submit'>Join this session</button></form>");
+                        }
+                        body.append("</div>");
+                    }
+                }
+
+                body.append("<details style='margin-top:8px'><summary class='propose-time-btn'>Propose a new time</summary>")
+                    .append("<form method='POST' action='/student/hire' style='margin-top:8px'>")
+                    .append("<input type='hidden' name='tutorId' value='").append(t.getUserId()).append("'>")
+                    .append("<input type='hidden' name='optionId' value='").append(o.getOptionId()).append("'>")
+                    .append("<label>Date</label><input type='date' name='date' required>")
+                    .append("<label>Start time</label><input type='time' name='startTime' required>")
+                    .append("<button type='submit'>Request This Session</button></form></details>");
+                body.append("</div>"); // close border-top section
+                body.append("</div>"); // close tutor-card
+            }
         }
         if (tutors.isEmpty()) {
             body.append("<div class='card'><p class='muted'>No tutors yet. Check back soon!</p></div>");
         }
         body.append("</div>");
         HttpUtil.sendHtml(exchange, 200, Layout.page("Find a Tutor", body.toString(), student, q.get("msg")));
+    }
+
+    // Renders a tutor's name/avatar, verification badge, subject tags, and verified qualifications -
+    // the header shared by every session-option box for that tutor.
+    private void appendTutorHeader(StringBuilder body, Tutor t) {
+        body.append("<h3>").append(Layout.avatarHtml(t, "avatar")).append(" ").append(Layout.escape(t.getName()))
+            .append(t.isVerified() ? " &#9989;" : "").append("</h3>");
+        body.append("<div class='subject-tags'>");
+        for (Subject s : t.getSubjects()) {
+            body.append("<span class='subject-tag'>").append(Layout.escape(s.getSubjectName())).append("</span>");
+        }
+        body.append("</div>");
+
+        if (!t.getQualifications().isEmpty()) {
+            body.append("<div style='margin:8px 0'>");
+            for (Qualification qual : t.getQualifications()) {
+                if (qual.getStatus() != QualificationStatus.VERIFIED) continue;
+                body.append("<p class='muted'>&#9989; ").append(Layout.escape(qual.getTitle())).append("</p>");
+            }
+            body.append("</div>");
+        }
     }
 
     private void hireTutor(HttpExchange exchange, Student student) throws IOException {
@@ -191,7 +212,7 @@ public class StudentHandler implements HttpHandler {
     private void sessions(HttpExchange exchange, Student student) throws IOException {
         StringBuilder body = new StringBuilder("<h1>My Sessions</h1>");
 
-        body.append("<h2>Pending Requests</h2><table><tr><th>Tutor</th><th>Option</th><th>Subject</th><th>Date</th><th>Time</th><th>Price</th><th>Status</th></tr>");
+        body.append("<div class='card'><h2>Pending Requests</h2><table><tr><th>Tutor</th><th>Option</th><th>Subject</th><th>Date</th><th>Time</th><th>Price</th><th>Status</th></tr>");
         for (SessionRequest r : student.myRequests()) {
             body.append("<tr><td>").append(Layout.escape(r.getTutor().getName())).append("</td><td>")
                 .append(Layout.escape(r.getOption().getTitle())).append("</td><td>")
@@ -200,9 +221,9 @@ public class StudentHandler implements HttpHandler {
                 .append("Rs. ").append(String.format("%.2f", r.getPrice())).append("</td><td>")
                 .append(badge(r.getStatus().name())).append("</td></tr>");
         }
-        body.append("</table>");
+        body.append("</table></div>");
 
-        body.append("<h2 style='margin-top:30px'>Sessions</h2><table><tr><th>Tutor</th><th>Subject</th><th>Date</th><th>Time</th><th>Price</th><th>Status</th><th>Payment</th><th></th></tr>");
+        body.append("<div class='card' style='margin-top:20px'><h2>Sessions</h2><table><tr><th>Tutor</th><th>Subject</th><th>Date</th><th>Time</th><th>Price</th><th>Status</th><th>Payment</th><th></th></tr>");
         for (Session s : student.getSessions()) {
             body.append("<tr><td>").append(Layout.escape(s.getTutor().getName())).append("</td><td>")
                 .append(Layout.escape(s.getSubject().getSubjectName())).append("</td><td>")
@@ -224,7 +245,7 @@ public class StudentHandler implements HttpHandler {
             }
             body.append("</td></tr>");
         }
-        body.append("</table>");
+        body.append("</table></div>");
 
         Map<String, String> q = HttpUtil.queryParams(exchange);
         HttpUtil.sendHtml(exchange, 200, Layout.page("My Sessions", body.toString(), student, q.get("msg")));
@@ -233,19 +254,27 @@ public class StudentHandler implements HttpHandler {
     private void materials(HttpExchange exchange, Student student) throws IOException {
         StringBuilder body = new StringBuilder("<h1>Study Materials</h1>");
 
-        List<Tutor> myTutors = student.tutorsBooked();
+        // Materials only unlock once a session is paid for and the tutor has activated it.
+        List<Session> activeSessions = student.sessionsWithAccessibleMaterials();
 
-        if (myTutors.isEmpty()) {
-            body.append("<div class='card'><p class='muted'>You'll see materials here once you've booked a session with a tutor.</p></div>");
+        if (activeSessions.isEmpty()) {
+            body.append("<div class='card'><p class='muted'>You'll see materials here once you've paid for a session and it becomes active.</p></div>");
         }
-        for (Tutor t : myTutors) {
-            body.append("<div class='card'><h3>").append(Layout.escape(t.getName())).append("</h3>");
-            if (t.getStudyMaterials().isEmpty()) {
-                body.append("<p class='muted'>No materials uploaded yet.</p>");
+
+        for (Session s : activeSessions) {
+            Tutor t = s.getTutor();
+            List<StudyMaterial> materials = t.materialsFor(s.getOption());
+            body.append("<div class='card'><h3>").append(Layout.escape(t.getName())).append(" &middot; ")
+                .append(Layout.escape(s.getOption().getTitle())).append("</h3>")
+                .append("<p class='muted'>").append(s.getScheduledDate()).append(" &middot; ")
+                .append(s.getStartTime()).append("-").append(s.getEndTime()).append("</p>");
+            if (materials.isEmpty()) {
+                body.append("<p class='muted'>No materials uploaded yet for this session.</p>");
             } else {
-                body.append("<table><tr><th>Title</th><th>Uploaded</th><th></th></tr>");
-                for (StudyMaterial m : t.getStudyMaterials()) {
+                body.append("<table><tr><th>Title</th><th>Session</th><th>Uploaded</th><th></th></tr>");
+                for (StudyMaterial m : materials) {
                     body.append("<tr><td>").append(Layout.escape(m.getTitle())).append("</td><td>")
+                        .append(Layout.escape(s.getOption().getTitle())).append("</td><td>")
                         .append(m.getUploadDate()).append("</td><td><a class='btn-link' href='")
                         .append(Layout.escape(m.download())).append("' target='_blank'>Download</a></td></tr>");
                 }

@@ -55,7 +55,7 @@ public class TutorHandler implements HttpHandler {
         String body = "<h1>Welcome, " + Layout.escape(tutor.getName()) + " " + verifiedBadge + "</h1>";
         if (!tutor.isVerified()) {
             body += "<div class='card'><p>Your account is awaiting admin verification. Upload your qualifications so an admin can verify you and students can find you.</p>"
-                  + "<a class='btn-link' href='/tutor/qualifications'>Upload qualifications &rarr;</a></div>";
+                  + "<div class='quick-links'><a href='/tutor/qualifications'>Upload qualifications &rarr;</a></div></div>";
         }
         if (tutor.getSessionOptions().isEmpty()) {
             body += "<div class='card'><p>You haven't listed any session options yet, so students can't book you. "
@@ -68,11 +68,12 @@ public class TutorHandler implements HttpHandler {
             + "<div class='card'><h3>" + tutor.getSessionOptions().size() + "</h3><p class='muted'>Session options listed</p></div>"
             + "<div class='card'><h3>" + tutor.getStudyMaterials().size() + "</h3><p class='muted'>Materials shared</p></div>"
             + "</div>"
-            + "<div class='card'><a class='btn-link' href='/tutor/options'>Manage session options &amp; pricing &rarr;</a><br>"
-            + "<a class='btn-link' href='/tutor/requests'>View session requests &rarr;</a><br>"
-            + "<a class='btn-link' href='/tutor/sessions'>View my sessions &rarr;</a><br>"
-            + "<a class='btn-link' href='/tutor/materials'>Manage study materials &rarr;</a><br>"
-            + "<a class='btn-link' href='/tutor/qualifications'>Manage qualifications &amp; subjects &rarr;</a></div>";
+            + "<div class='card'><div class='quick-links'>"
+            + "<a href='/tutor/options'>Manage session options &amp; pricing &rarr;</a>"
+            + "<a href='/tutor/requests'>View session requests &rarr;</a>"
+            + "<a href='/tutor/sessions'>View my sessions &rarr;</a>"
+            + "<a href='/tutor/materials'>Manage study materials &rarr;</a>"
+            + "<a href='/tutor/qualifications'>Manage qualifications &amp; subjects &rarr;</a></div></div>";
         HttpUtil.sendHtml(exchange, 200, Layout.page("Dashboard", body, tutor, null));
     }
 
@@ -134,32 +135,55 @@ public class TutorHandler implements HttpHandler {
     }
 
     private void materialsPage(HttpExchange exchange, Tutor tutor) throws IOException {
-        StringBuilder body = new StringBuilder("<h1>Study Materials</h1>");
-        body.append("<div class='card'><h2>Upload Material</h2>")
-            .append("<form method='POST' action='/tutor/materials' enctype='multipart/form-data'>")
-            .append("<label>Title</label><input name='title' required>")
-            .append("<label>File</label><input type='file' name='file' required>")
-            .append("<button type='submit'>Upload</button></form></div>");
+        materialsPage(exchange, tutor, null);
+    }
 
-        body.append("<div class='card'><table><tr><th>Title</th><th>Uploaded</th></tr>");
+    private void materialsPage(HttpExchange exchange, Tutor tutor, String msg) throws IOException {
+        StringBuilder body = new StringBuilder("<h1>Study Materials</h1>");
+
+        if (tutor.getSessionOptions().isEmpty()) {
+            body.append("<div class='card'><p class='muted'>Add a session option first - study materials must be linked to one of your session offerings.</p>")
+                .append("<a class='btn-link' href='/tutor/options'>Add a session option &rarr;</a></div>");
+        } else {
+            body.append("<div class='card'><h2>Upload Material</h2>")
+                .append("<form method='POST' action='/tutor/materials' enctype='multipart/form-data'>")
+                .append("<label>Title</label><input name='title' required>")
+                .append("<label>Session</label><select name='optionId' required>");
+            for (SessionOption o : tutor.getSessionOptions()) {
+                body.append("<option value='").append(o.getOptionId()).append("'>")
+                    .append(Layout.escape(o.getTitle())).append(" &middot; ")
+                    .append(Layout.escape(o.getSubject().getSubjectName())).append("</option>");
+            }
+            body.append("</select>")
+                .append("<label>File</label><input type='file' name='file' required>")
+                .append("<button type='submit'>Upload</button></form></div>");
+        }
+
+        body.append("<div class='card'><table><tr><th>Title</th><th>Session</th><th>Uploaded</th></tr>");
         for (StudyMaterial m : tutor.getStudyMaterials()) {
             body.append("<tr><td>").append(Layout.escape(m.getTitle())).append("</td><td>")
+                .append(m.getOption() == null ? "-" : Layout.escape(m.getOption().getTitle())).append("</td><td>")
                 .append(m.getUploadDate()).append("</td></tr>");
         }
+        if (tutor.getStudyMaterials().isEmpty()) {
+            body.append("<tr><td colspan='3' class='muted'>No materials uploaded yet.</td></tr>");
+        }
         body.append("</table></div>");
-        HttpUtil.sendHtml(exchange, 200, Layout.page("Materials", body.toString(), tutor, null));
+        HttpUtil.sendHtml(exchange, 200, Layout.page("Materials", body.toString(), tutor, msg));
     }
 
     private void uploadMaterial(HttpExchange exchange, Tutor tutor) throws IOException {
         HttpUtil.MultipartForm form = HttpUtil.parseMultipart(exchange);
         String title = form.get("title");
+        String optionIdStr = form.get("optionId");
         HttpUtil.UploadedFile file = form.files.get("file");
-        if (title == null || title.isBlank() || file == null || file.isEmpty()) {
-            materialsPage(exchange, tutor);
+        SessionOption option = optionIdStr == null ? null : tutor.findSessionOption(Integer.parseInt(optionIdStr));
+        if (title == null || title.isBlank() || option == null || file == null || file.isEmpty()) {
+            materialsPage(exchange, tutor, "Please provide a title, choose one of your sessions, and select a file to upload.");
             return;
         }
         String fileURL = FileStorage.save(file, "materials");
-        StudyMaterial m = tutor.uploadMaterial(title, fileURL);
+        StudyMaterial m = tutor.uploadMaterial(title, fileURL, option);
         SqlPersistence.saveStudyMaterial(tutor.getUserId(), m);
         HttpUtil.redirect(exchange, "/tutor/materials");
     }
@@ -170,31 +194,37 @@ public class TutorHandler implements HttpHandler {
         body.append("<p class='muted'>Add as many priced session offerings as you like. Students choose one of these when they book you.</p>");
 
         body.append("<div class='card'><h2>Add a Session Option</h2>")
-            .append("<form method='POST' action='/tutor/options'>")
+            .append("<form method='POST' action='/tutor/options' enctype='multipart/form-data'>")
             .append("<label>Title</label><input name='title' placeholder='e.g. 1-Hour Algebra Tutoring' required>")
             .append("<label>Subject</label><select name='subjectId'>");
-        for (Subject s : DataStore.get().allSubjects()) {
+        for (Subject s : tutor.getSubjects()) {
             body.append("<option value='").append(s.getSubjectId()).append("'>").append(Layout.escape(s.getSubjectName())).append("</option>");
+        }
+        if (tutor.getSubjects().isEmpty()) {
+            body.append("<option value='' disabled selected>Add a subject first under Manage qualifications &amp; subjects</option>");
         }
         body.append("</select>")
             .append("<label>Duration (minutes)</label><input type='number' name='durationMinutes' min='15' step='15' value='60' required>")
             .append("<label>Price (Rs.)</label><input type='number' name='price' min='0' step='0.01' required>")
             .append("<label>Max students</label><input type='number' name='maxStudents' min='1' step='1' value='1' required>")
+            .append("<label>Study material (optional)</label><input type='file' name='material'>")
+            .append("<label>Material title</label><input name='materialTitle' placeholder='Only needed if you attached a file'>")
             .append("<button type='submit'>Add Option</button></form></div>");
 
-        body.append("<div class='card'><table><tr><th>Title</th><th>Subject</th><th>Duration</th><th>Price</th><th>Capacity</th><th>Booked Slots</th><th></th></tr>");
+        body.append("<div class='card'><table><tr><th>Title</th><th>Subject</th><th>Duration</th><th>Price</th><th>Capacity</th><th>Booked Slots</th><th>Materials</th><th></th></tr>");
         for (SessionOption o : tutor.getSessionOptions()) {
             body.append("<tr><td>").append(Layout.escape(o.getTitle())).append("</td><td>")
                 .append(Layout.escape(o.getSubject().getSubjectName())).append("</td><td>")
                 .append(o.getDurationMinutes()).append(" min</td><td>Rs. ").append(String.format("%.2f", o.getPrice()))
                 .append("</td><td>").append(o.getMaxStudents()).append(" per session</td><td>")
                 .append(o.existingSlots().size()).append(" slot(s) requested so far</td><td>")
+                .append(tutor.materialsFor(o).size()).append(" material(s)</td><td>")
                 .append("<form method='POST' action='/tutor/options/remove'>")
                 .append("<input type='hidden' name='optionId' value='").append(o.getOptionId()).append("'>")
                 .append("<button type='submit' class='btn-secondary'>Remove</button></form></td></tr>");
         }
         if (tutor.getSessionOptions().isEmpty()) {
-            body.append("<tr><td colspan='7' class='muted'>No session options yet.</td></tr>");
+            body.append("<tr><td colspan='8' class='muted'>No session options yet.</td></tr>");
         }
         body.append("</table></div>");
 
@@ -202,8 +232,12 @@ public class TutorHandler implements HttpHandler {
     }
 
     private void addSessionOption(HttpExchange exchange, Tutor tutor) throws IOException {
-        Map<String, String> form = HttpUtil.parseForm(exchange);
+        HttpUtil.MultipartForm form = HttpUtil.parseMultipart(exchange);
         Subject subject = DataStore.get().findSubject(Integer.parseInt(form.get("subjectId")));
+        if (subject == null || !tutor.getSubjects().contains(subject)) {
+            optionsPage(exchange, tutor, "Please choose a subject you're registered to teach.");
+            return;
+        }
         String title = form.get("title");
         int duration = Integer.parseInt(form.get("durationMinutes"));
         double price = Double.parseDouble(form.get("price"));
@@ -212,6 +246,15 @@ public class TutorHandler implements HttpHandler {
         try {
             SessionOption option = tutor.addSessionOption(subject, title, duration, price, maxStudents);
             SqlPersistence.saveSessionOption(option);
+
+            HttpUtil.UploadedFile material = form.files.get("material");
+            if (material != null && !material.isEmpty()) {
+                String materialTitle = form.get("materialTitle");
+                if (materialTitle == null || materialTitle.isBlank()) materialTitle = title;
+                String fileURL = FileStorage.save(material, "materials");
+                StudyMaterial m = tutor.uploadMaterial(materialTitle, fileURL, option);
+                SqlPersistence.saveStudyMaterial(tutor.getUserId(), m);
+            }
         } catch (IllegalArgumentException e) {
             optionsPage(exchange, tutor, e.getMessage());
             return;
@@ -228,7 +271,7 @@ public class TutorHandler implements HttpHandler {
     }
 
     private void requestsPage(HttpExchange exchange, Tutor tutor) throws IOException {
-        StringBuilder body = new StringBuilder("<h1>Session Requests</h1><table><tr><th></th><th>Student</th><th>Option</th><th>Subject</th><th>Date</th><th>Time</th><th>Price</th><th>Status</th><th></th></tr>");
+        StringBuilder body = new StringBuilder("<h1>Session Requests</h1><div class='card'><table><tr><th></th><th>Student</th><th>Option</th><th>Subject</th><th>Date</th><th>Time</th><th>Price</th><th>Status</th><th></th></tr>");
         for (SessionRequest r : tutor.allRequests()) {
             body.append("<tr><td>").append(Layout.avatarHtml(r.getStudent(), "avatar")).append("</td><td>")
                 .append(Layout.escape(r.getStudent().getName())).append("</td><td>")
@@ -247,7 +290,7 @@ public class TutorHandler implements HttpHandler {
             }
             body.append("</td></tr>");
         }
-        body.append("</table>");
+        body.append("</table></div>");
         HttpUtil.sendHtml(exchange, 200, Layout.page("Requests", body.toString(), tutor, null));
     }
 
@@ -272,7 +315,7 @@ public class TutorHandler implements HttpHandler {
     }
 
     private void sessionsPage(HttpExchange exchange, Tutor tutor) throws IOException {
-        StringBuilder body = new StringBuilder("<h1>My Sessions</h1><table><tr><th>Student</th><th>Subject</th><th>Date</th><th>Time</th><th>Price</th><th>Status</th><th>Payment</th><th></th></tr>");
+        StringBuilder body = new StringBuilder("<h1>My Sessions</h1><div class='card'><table><tr><th>Student</th><th>Subject</th><th>Date</th><th>Time</th><th>Price</th><th>Status</th><th>Payment</th><th></th></tr>");
         for (Session s : tutor.allSessions()) {
             body.append("<tr><td>").append(Layout.escape(s.getStudent().getName())).append("</td><td>")
                 .append(Layout.escape(s.getSubject().getSubjectName())).append("</td><td>")
@@ -288,7 +331,7 @@ public class TutorHandler implements HttpHandler {
             }
             body.append("</td></tr>");
         }
-        body.append("</table>");
+        body.append("</table></div>");
         HttpUtil.sendHtml(exchange, 200, Layout.page("My Sessions", body.toString(), tutor, null));
     }
 

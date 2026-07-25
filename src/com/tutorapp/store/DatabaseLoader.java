@@ -29,8 +29,8 @@ final class DatabaseLoader {
 
             loadTutorSubjects(conn, usersById, subjectsById);
             loadQualifications(conn, usersById);
-            loadStudyMaterials(conn, usersById);
             Map<Integer, SessionOption> optionsById = loadSessionOptions(conn, usersById, subjectsById);
+            loadStudyMaterials(conn, usersById, optionsById);
             Map<Integer, Payment> paymentsById = loadPayments(conn);
             loadSessionRequests(conn, store, usersById, subjectsById, optionsById);
             loadSessions(conn, store, usersById, subjectsById, optionsById, paymentsById);
@@ -131,19 +131,22 @@ final class DatabaseLoader {
         }
     }
 
-    private static void loadStudyMaterials(Connection conn, Map<String, User> usersById) throws SQLException {
+    private static void loadStudyMaterials(Connection conn, Map<String, User> usersById,
+                                            Map<Integer, SessionOption> optionsById) throws SQLException {
         int maxId = 0;
         try (Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery(
-                     "SELECT material_id, tutor_id, title, file_url, upload_date FROM study_materials")) {
+                     "SELECT material_id, tutor_id, option_id, title, file_url, upload_date FROM study_materials")) {
             while (rs.next()) {
                 int id = rs.getInt("material_id");
                 Tutor tutor = asTutor(usersById.get(rs.getString("tutor_id")));
                 maxId = Math.max(maxId, id);
                 if (tutor == null) continue;
+                int optionId = rs.getInt("option_id");
+                SessionOption option = rs.wasNull() ? null : optionsById.get(optionId);
                 StudyMaterial m = StudyMaterial.restore(
                         id, rs.getString("title"), rs.getString("file_url"),
-                        rs.getObject("upload_date", LocalDate.class));
+                        rs.getObject("upload_date", LocalDate.class), option);
                 tutor.getStudyMaterials().add(m);
             }
         }

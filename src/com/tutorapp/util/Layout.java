@@ -47,7 +47,7 @@ public class Layout {
                    .append("<a href='/admin/subjects'>Subjects</a>");
             }
             nav.append("<a href='/profile'>Profile</a>");
-            nav.append("<span class='who'>").append(escape(currentUser.getName())).append("</span>");
+            nav.append("<a href='/profile'>").append(avatarHtml(currentUser, "avatar-sm")).append("</a>");
             nav.append("<a class='btn-nav' href='/logout'>Logout</a>");
         }
         return nav.toString();
