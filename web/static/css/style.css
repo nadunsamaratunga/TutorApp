@@ -29,7 +29,7 @@ body::before {
     content: "";
     position: fixed;
     inset: 0;
-    background-image: url("bgg2.png");
+    background-image: url("background.png");
     background-size: cover;
     background-position: center;
     filter: blur(8px);
